@@ -3,10 +3,13 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"sync"
 
 	// sqlite3 driver
+	"github.com/influxdata/influxdb/v2/kit/tracing"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 
@@ -21,9 +24,10 @@ const (
 // SqlStore is a wrapper around the db and provides basic functionality for maintaining the db
 // including flushing the data from the db during end-to-end testing.
 type SqlStore struct {
-	Mu  sync.Mutex
-	DB  *sqlx.DB
-	log *zap.Logger
+	Mu   sync.Mutex
+	DB   *sqlx.DB
+	log  *zap.Logger
+	path string
 }
 
 func NewSqlStore(path string, log *zap.Logger) (*SqlStore, error) {
@@ -42,8 +46,9 @@ func NewSqlStore(path string, log *zap.Logger) (*SqlStore, error) {
 	}
 
 	return &SqlStore{
-		DB:  db,
-		log: log,
+		DB:   db,
+		log:  log,
+		path: path,
 	}, nil
 }
 
@@ -72,6 +77,24 @@ func (s *SqlStore) Flush(ctx context.Context) {
 		}
 	}
 	s.log.Debug("sqlite data flushed successfully")
+}
+
+// Backup copies the entire sqlite database to a writer.
+func (s *SqlStore) BackupSqlStore(ctx context.Context, w io.Writer) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	span, _ := tracing.StartSpanFromContext(ctx)
+	defer span.Finish()
+
+	f, err := os.Open(s.path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(w, f)
+	return err
 }
 
 func (s *SqlStore) execTrans(ctx context.Context, stmt string) error {

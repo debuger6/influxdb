@@ -1,7 +1,10 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,6 +32,37 @@ func TestFlush(t *testing.T) {
 	vals, err = store.queryToStrings(`SELECT * FROM test_table_1`)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(vals))
+}
+
+func TestBackupSqlStore(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store, clean := NewTestStore(t)
+	defer clean(t)
+
+	err := store.execTrans(ctx, `CREATE TABLE test_table_1 (id TEXT NOT NULL PRIMARY KEY)`)
+	require.NoError(t, err)
+
+	err = store.execTrans(ctx, `INSERT INTO test_table_1 (id) VALUES ("one"), ("two"), ("three")`)
+	require.NoError(t, err)
+
+	tempDir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	backupPath := tempDir + "/db.sqlite"
+	dest, err := os.Create(backupPath)
+	require.NoError(t, err)
+
+	store.BackupSqlStore(ctx, dest)
+
+	b1, err := ioutil.ReadFile(store.path)
+	require.NoError(t, err)
+	b2, err := ioutil.ReadFile(backupPath)
+	require.NoError(t, err)
+
+	require.True(t, bytes.Equal(b1, b2))
 }
 
 func TestUserVersion(t *testing.T) {

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/influxdata/influxdb/v2/kit/platform/errors"
@@ -22,7 +24,8 @@ type BackupBackend struct {
 	Logger *zap.Logger
 	errors.HTTPErrorHandler
 
-	BackupService influxdb.BackupService
+	BackupService    influxdb.BackupService
+	SqlBackupService influxdb.SqlBackupService
 }
 
 // NewBackupBackend returns a new instance of BackupBackend.
@@ -32,6 +35,7 @@ func NewBackupBackend(b *APIBackend) *BackupBackend {
 
 		HTTPErrorHandler: b.HTTPErrorHandler,
 		BackupService:    b.BackupService,
+		SqlBackupService: b.SqlBackupService,
 	}
 }
 
@@ -41,13 +45,15 @@ type BackupHandler struct {
 	errors.HTTPErrorHandler
 	Logger *zap.Logger
 
-	BackupService influxdb.BackupService
+	BackupService    influxdb.BackupService
+	SqlBackupService influxdb.SqlBackupService
 }
 
 const (
-	prefixBackup      = "/api/v2/backup"
-	backupKVStorePath = prefixBackup + "/kv"
-	backupShardPath   = prefixBackup + "/shards/:shardID"
+	prefixBackup       = "/api/v2/backup"
+	backupKVStorePath  = prefixBackup + "/kv"
+	backupShardPath    = prefixBackup + "/shards/:shardID"
+	backupMetadataPath = prefixBackup + "/metadata"
 
 	httpClientTimeout = time.Hour
 )
@@ -59,10 +65,12 @@ func NewBackupHandler(b *BackupBackend) *BackupHandler {
 		Router:           NewRouter(b.HTTPErrorHandler),
 		Logger:           b.Logger,
 		BackupService:    b.BackupService,
+		SqlBackupService: b.SqlBackupService,
 	}
 
 	h.HandlerFunc(http.MethodGet, backupKVStorePath, h.handleBackupKVStore)
 	h.HandlerFunc(http.MethodGet, backupShardPath, h.handleBackupShard)
+	h.HandlerFunc(http.MethodGet, backupMetadataPath, h.handleBackupMetadata)
 
 	return h
 }
@@ -101,6 +109,65 @@ func (h *BackupHandler) handleBackupShard(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.BackupService.BackupShard(ctx, w, shardID, since); err != nil {
+		h.HandleHTTPError(ctx, err, w)
+		return
+	}
+}
+
+func (h *BackupHandler) handleBackupMetadata(w http.ResponseWriter, r *http.Request) {
+	span, r := tracing.ExtractFromHTTPRequest(r, "BackupHandler.handleBackupMetadata")
+	defer span.Finish()
+
+	ctx := r.Context()
+
+	baseName := time.Now().UTC().Format(influxdb.BackupFilenamePattern)
+
+	formWriter := multipart.NewWriter(w)
+	w.Header().Set("Content-Type", formWriter.FormDataContentType())
+
+	ops := []struct {
+		fieldname string
+		filename  string
+		writeFn   func(io.Writer) error
+	}{
+		{
+			"kv",
+			fmt.Sprintf("%s.bolt", baseName),
+			func(fw io.Writer) error {
+				return h.BackupService.BackupKVStore(ctx, fw)
+			},
+		},
+		{
+			"sqlite",
+			fmt.Sprintf("%s.sqlite", baseName),
+			func(fw io.Writer) error {
+				return h.SqlBackupService.BackupSqlStore(ctx, fw)
+			},
+		},
+		{
+			"manifest",
+			fmt.Sprintf("%s.manifest", baseName),
+			func(fw io.Writer) error {
+				_, err := io.Copy(fw, strings.NewReader("manifest lol"))
+				return err
+			},
+		},
+	}
+
+	for _, o := range ops {
+		fw, err := formWriter.CreateFormFile(o.fieldname, o.filename)
+		if err != nil {
+			h.HandleHTTPError(ctx, err, w)
+			return
+		}
+
+		if err := o.writeFn(fw); err != nil {
+			h.HandleHTTPError(ctx, err, w)
+			return
+		}
+	}
+
+	if err := formWriter.Close(); err != nil {
 		h.HandleHTTPError(ctx, err, w)
 		return
 	}
