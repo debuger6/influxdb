@@ -132,10 +132,10 @@ func (e *encoder) Bytes() ([]byte, error) {
 
 	// We can't compress this time-range, the deltas exceed 1 << 60
 	if max > simple8b.MaxValue {
-		return e.encodeRaw()
+		return e.encodeRaw() // 用不了 simple8b，只能编码原始值
 	}
 
-	return e.encodePacked(div, dts)
+	return e.encodePacked(div, dts) // simple8b 编码
 }
 
 func (e *encoder) encodePacked(div uint64, dts []uint64) ([]byte, error) {

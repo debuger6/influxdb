@@ -577,7 +577,7 @@ func NewTSMWriterWithDiskBuffer(w io.Writer) (TSMWriter, error) {
 
 func (t *tsmWriter) writeHeader() error {
 	var buf [5]byte
-	binary.BigEndian.PutUint32(buf[0:4], MagicNumber)
+	binary.BigEndian.PutUint32(buf[0:4], MagicNumber) // MagicNumer|version
 	buf[4] = Version
 
 	n, err := t.w.Write(buf[:])

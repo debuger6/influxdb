@@ -1332,7 +1332,7 @@ func (e *Engine) WritePointsWithContext(ctx context.Context, points []models.Poi
 				continue
 			}
 
-			keyBuf = append(keyBuf[:baseLen], iter.FieldKey()...)
+			keyBuf = append(keyBuf[:baseLen], iter.FieldKey()...) // seriesKey+fieldKey
 
 			if e.seriesTypeMap != nil {
 				// Fast-path check to see if the field for the series already exists.
