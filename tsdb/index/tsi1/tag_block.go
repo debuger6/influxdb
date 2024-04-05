@@ -633,7 +633,7 @@ func (enc *TagBlockEncoder) EncodeValue(value []byte, deleted bool, ss *tsdb.Ser
 	enc.buf.Reset()
 	if _, err := ss.WriteTo(&enc.buf); err != nil {
 		return err
-	}
+	} // 现将 series ids 序列化到 buf 中
 
 	// Write series count.
 	if err := writeUvarintTo(enc.w, uint64(ss.Cardinality()), &enc.n); err != nil {

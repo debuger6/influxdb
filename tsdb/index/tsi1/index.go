@@ -53,7 +53,6 @@ func init() {
 //
 // NOTE: Currently, this must not be change once a database is created. Further,
 // it must also be a power of 2.
-//
 var DefaultPartitionN uint64 = 8
 
 // An IndexOption is a functional option for changing the configuration of
@@ -127,7 +126,7 @@ type Index struct {
 	partitions []*Partition
 	opened     bool
 
-	tagValueCache     *TagValueSeriesIDCache
+	tagValueCache     *TagValueSeriesIDCache // LRU 读缓存，写入的时候会对其进行更新
 	tagValueCacheSize int
 
 	// The following may be set when initializing an Index.

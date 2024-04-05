@@ -21,8 +21,8 @@ import (
 // to provide constant time retrievals of items from the cache.
 type TagValueSeriesIDCache struct {
 	sync.RWMutex
-	cache   map[string]map[string]map[string]*list.Element
-	evictor *list.List
+	cache   map[string]map[string]map[string]*list.Element // LRU Cache 的典型实现，map 用于定位元素
+	evictor *list.List                                     // 所有缓存的值放双链表
 
 	capacity int
 }

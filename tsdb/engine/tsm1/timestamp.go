@@ -123,7 +123,7 @@ func (e *encoder) Bytes() ([]byte, error) {
 
 	// Maximum and largest common divisor.  rle is true if dts (the delta timestamps),
 	// are all the same.
-	max, div, rle, dts := e.reduce()
+	max, div, rle, dts := e.reduce() // 这里面会对 timestamps 做一次 delta 编码
 
 	// The deltas are all the same, so we can run-length encode them
 	if rle && len(e.ts) > 1 {

@@ -85,11 +85,11 @@ func (e *IntegerEncoder) Bytes() ([]byte, error) {
 	for _, v := range e.values {
 		// Value is too large to encode using packed format
 		if v > simple8b.MaxValue {
-			return e.encodeUncompressed()
+			return e.encodeUncompressed() // 编码原始内容
 		}
 	}
 
-	return e.encodePacked()
+	return e.encodePacked() // simple8b 编码
 }
 
 func (e *IntegerEncoder) encodeRLE() ([]byte, error) {

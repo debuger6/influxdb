@@ -176,8 +176,8 @@ func (f *SeriesFile) FileSize() (n int64, err error) {
 // CreateSeriesListIfNotExists creates a list of series in bulk if they don't exist.
 // The returned ids slice returns IDs for every name+tags, creating new series IDs as needed.
 func (f *SeriesFile) CreateSeriesListIfNotExists(names [][]byte, tagsSlice []models.Tags) ([]uint64, error) {
-	keys := GenerateSeriesKeys(names, tagsSlice)
-	keyPartitionIDs := f.SeriesKeysPartitionIDs(keys)
+	keys := GenerateSeriesKeys(names, tagsSlice)      // 生成 seriesKeys
+	keyPartitionIDs := f.SeriesKeysPartitionIDs(keys) // 得到每个 seriesKey 对应的 partition id
 	ids := make([]uint64, len(keys))
 
 	var g errgroup.Group
@@ -213,7 +213,7 @@ func (f *SeriesFile) IsDeleted(id uint64) bool {
 }
 
 // SeriesKey returns the series key for a given id.
-func (f *SeriesFile) SeriesKey(id uint64) []byte {
+func (f *SeriesFile) SeriesKey(id uint64) []byte { // 找到 id 对应的 series key
 	if id == 0 {
 		return nil
 	}

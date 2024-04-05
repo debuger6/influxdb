@@ -625,16 +625,16 @@ func encodeIntegerBlockUsing(buf []byte, values []Value, tenc TimeEncoder, venc 
 	for _, v := range values {
 		vv := v.(IntegerValue)
 		tenc.Write(vv.unixnano)
-		venc.Write(vv.value)
+		venc.Write(vv.value) // 这里写入的时候便做了 delta + zigzag 编码了
 	}
 
 	// Encoded timestamp values
-	tb, err := tenc.Bytes()
+	tb, err := tenc.Bytes() // delta+rle/simple8b/raw
 	if err != nil {
 		return nil, err
 	}
 	// Encoded int64 values
-	vb, err := venc.Bytes()
+	vb, err := venc.Bytes() // delta+zigzag+rle/simple8b/raw，前两个在 Write 时完成
 	if err != nil {
 		return nil, err
 	}

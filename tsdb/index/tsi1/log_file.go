@@ -63,10 +63,10 @@ type LogFile struct {
 	modTime time.Time        // tracks last time write occurred
 
 	// In-memory series existence/tombstone sets.
-	seriesIDSet, tombstoneSeriesIDSet *tsdb.SeriesIDSet
+	seriesIDSet, tombstoneSeriesIDSet *tsdb.SeriesIDSet // 整个 tsi 文件包含的 series 和 tombstone series 的内存表示
 
 	// In-memory index.
-	mms logMeasurements
+	mms logMeasurements // 刷盘后就是 tsi 文件中的倒排索引
 
 	// Filepath to the log file.
 	path string
@@ -720,7 +720,7 @@ func (f *LogFile) execSeriesEntry(e *LogEntry) {
 
 	// Save tags.
 	var k, v []byte
-	for i := 0; i < tagN; i++ {
+	for i := 0; i < tagN; i++ { // 创建内存倒排索引
 		k, v, remainder = tsdb.ReadSeriesKeyTag(remainder)
 		ts := mm.createTagSetIfNotExists(k)
 		tv := ts.createTagValueIfNotExists(v)
@@ -1242,8 +1242,8 @@ type logMeasurement struct {
 	name      []byte
 	tagSet    map[string]logTagKey
 	deleted   bool
-	series    map[uint64]struct{}
-	seriesSet *tsdb.SeriesIDSet
+	series    map[uint64]struct{} // measurement 包含的所有 series，当 series 较少时，直接使用 map 存储
+	seriesSet *tsdb.SeriesIDSet   // 当 series 较多时，使用 roringbitmap 存储
 }
 
 // bytes estimates the memory footprint of this logMeasurement, in bytes.
@@ -1422,8 +1422,8 @@ func (a logTagKeySlice) Less(i, j int) bool { return bytes.Compare(a[i].name, a[
 type logTagValue struct {
 	name      []byte
 	deleted   bool
-	series    map[uint64]struct{}
-	seriesSet *tsdb.SeriesIDSet
+	series    map[uint64]struct{} // 当 series id 较少时，直接使用 map 存储
+	seriesSet *tsdb.SeriesIDSet   // 当 series id 变多时，使用 roaringbitmap 存储节约空间
 }
 
 // bytes estimates the memory footprint of this logTagValue, in bytes.

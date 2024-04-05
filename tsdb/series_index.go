@@ -48,9 +48,9 @@ type SeriesIndex struct {
 	idOffsetData []byte // id/offset mmap data
 
 	// In-memory data since rebuild.
-	keyIDMap    *rhh.HashMap
-	idOffsetMap map[uint64]int64
-	tombstones  map[uint64]struct{}
+	keyIDMap    *rhh.HashMap        // series key 到 series id 的映射，通过该映射关系可以快速判断 series key 对应的 series id 是否生成，避免重复创建索引
+	idOffsetMap map[uint64]int64    // series id 到文件偏移的映射，offset 是 segment id 和文件偏移的复合值，见 JoinSeriesOffset 方法
+	tombstones  map[uint64]struct{} // 已删除的 series id
 }
 
 func NewSeriesIndex(path string) *SeriesIndex {

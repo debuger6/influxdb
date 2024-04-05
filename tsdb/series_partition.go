@@ -571,8 +571,8 @@ func (c *SeriesPartitionCompactor) compactIndexTo(index *SeriesIndex, seriesN ui
 	hdr.Capacity = pow2((int64(hdr.Count) * 100) / SeriesIndexLoadFactor)
 
 	// Allocate space for maps.
-	keyIDMap := make([]byte, (hdr.Capacity * SeriesIndexElemSize))
-	idOffsetMap := make([]byte, (hdr.Capacity * SeriesIndexElemSize))
+	keyIDMap := make([]byte, (hdr.Capacity * SeriesIndexElemSize))    // 用 hash table 存 key 到 id 的映射，实际存的是 offset 到 id 的映射，实际使用时，可以通过 offset 得到 key
+	idOffsetMap := make([]byte, (hdr.Capacity * SeriesIndexElemSize)) // 用 hashtable 存 id 到 offset 的映射
 
 	// Reindex all partitions.
 	var entryN int
